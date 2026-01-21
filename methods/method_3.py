@@ -18,7 +18,7 @@ WEIGHTS_DIR = Path(__file__).parent / "weights"
 MODULE_CONFIG = {
     'class_name': 'DQNAgent',
     'params_file': None,
-    'weights_file': 'method_7_best.pth',
+    'weights_file': 'best_method_7.pth',
     'discrete_action': True,
 }
 

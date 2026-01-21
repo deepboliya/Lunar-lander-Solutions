@@ -78,7 +78,8 @@ def train_cma_es(method_num: int, num_gen: int, pop_size: int, sigma0: float = 2
             gravity_magnitude=GRAVITY_MAGNITUDE
         )
         
-        obs, info = env.reset(seed=random.randint(0, 10000))
+        # obs, info = env.reset(seed=random.randint(0, 10000))
+        obs, info = env.reset(seed=0)
         done = False
         
         while not done:
@@ -164,11 +165,11 @@ def main():
     
     parser.add_argument('--method', type=int, required=True,
                         help='Method number to train (must have cma_num_params in config)')
-    parser.add_argument('--num-gen', type=int, default=400,
+    parser.add_argument('--num-gen', type=int, default=200,
                         help='Number of generations for CMA-ES')
-    parser.add_argument('--pop-size', type=int, default=200,
+    parser.add_argument('--pop-size', type=int, default=50,
                         help='Population size for CMA-ES')
-    parser.add_argument('--sigma', type=float, default=2.0,
+    parser.add_argument('--sigma', type=float, default=1.0,
                         help='Initial sigma for CMA-ES')
     
     args = parser.parse_args()
