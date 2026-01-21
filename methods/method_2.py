@@ -1,5 +1,20 @@
+"""
+Method 2: PID Controller with CMA-ES tuned parameters
+Uses 15 parameters for multiple PID controllers.
+"""
+
 import math
 import numpy as np
+from methods.base_controller import BaseController
+
+MODULE_CONFIG = {
+    'class_name': 'AgentPID',
+    'params_file': 'method_2.json',
+    'weights_file': None,
+    'cma_num_params': 15,
+}
+
+
 class PIDController:
     def __init__(self, kp, ki, kd, integral_limit=10.0):
         self.kp = kp
@@ -19,37 +34,32 @@ class PIDController:
         self.previous_error = error
         return output
 
-class AgentPID:
-    def __init__(self, flattened_params = None, gravity_magnitude = None, print_ = False):
-        self.print_ = print_
-        self.gravity_magnitude = gravity_magnitude
-        if flattened_params is None:
-            flattened_params = [0.1, 0.0, 0.0,   # x position PID
-                                0.5, 0.00, 0.0,   # y position PID
-                                0.0, 0.0, 0.0,   # x velocity PID
-                                7.0, 0.0, 0.0,   # y velocity PID
-                                0.0, 0.0, 0.0]  # angle PID
-                                # 5.0, 0.0, 1.0]  # angle rate PID
+
+class AgentPID(BaseController):
+    def __init__(self, params=None, weights=None, gravity_magnitude=10.0):
+        super().__init__(params=params, weights=weights, gravity_magnitude=gravity_magnitude)
         
-        x_kp, x_ki, x_kd = flattened_params[:3]
-        y_kp, y_ki, y_kd = flattened_params[3:6]
-        vx_kp, vx_ki, vx_kd = flattened_params[6:9]
-        vy_kp, vy_ki, vy_kd = flattened_params[9:12]
-        angle_kp, angle_ki, angle_kd = flattened_params[12:15]
+        if self.params is None:
+            self.params = [0.1, 0.0, 0.0,
+                          0.5, 0.0, 0.0,
+                          0.0, 0.0, 0.0,
+                          7.0, 0.0, 0.0,
+                          0.0, 0.0, 0.0]
         
-        # angle_rate_kp, angle_rate_ki, angle_rate_kd = flattened_params[15:18]
+        x_kp, x_ki, x_kd = self.params[:3]
+        y_kp, y_ki, y_kd = self.params[3:6]
+        vx_kp, vx_ki, vx_kd = self.params[6:9]
+        vy_kp, vy_ki, vy_kd = self.params[9:12]
+        angle_kp, angle_ki, angle_kd = self.params[12:15]
 
         self.x_position_controller = PIDController(kp=x_kp, ki=x_ki, kd=x_kd)
         self.y_position_controller = PIDController(kp=y_kp, ki=y_ki, kd=y_kd)
         self.x_velocity_controller = PIDController(kp=vx_kp, ki=vx_ki, kd=vx_kd)
         self.y_velocity_controller = PIDController(kp=vy_kp, ki=vy_ki, kd=vy_kd)
-
         self.angle_controller = PIDController(kp=angle_kp, ki=angle_ki, kd=angle_kd)
 
-        # self.angle_rate_controller = PIDController(kp=angle_rate_kp, ki=angle_rate_ki, kd=angle_rate_kd)
-        self.assumed_mass = 0.1  # mass of the lander
-        self.assumed_dt = 0.02  # assuming 60 FPS
-
+        self.assumed_mass = 0.1
+        self.assumed_dt = 0.02
 
         self.x = 0.0
         self.y = 0.0
@@ -86,30 +96,23 @@ class AgentPID:
         self.theta, self.vtheta = observation[4], (observation[5] * 2.5)
         self.leg1, self.leg2 = observation[6], observation[7]
 
-        # Position Controller
         self.target_vx = self.x_position_controller.compute(setpoint=0, measurement=self.x, dt=self.assumed_dt)
         self.target_ax = self.x_velocity_controller.compute(setpoint=self.target_vx, measurement=self.vx, dt=self.assumed_dt)
 
         self.target_vy = self.y_position_controller.compute(setpoint=0, measurement=self.y, dt=self.assumed_dt)
         self.target_ay = self.y_velocity_controller.compute(setpoint=self.target_vy, measurement=self.vy, dt=self.assumed_dt)
 
-        # Attitude Controller
-        self.target_theta = math.atan2(self.target_ay+self.gravity_magnitude, self.target_ax)
+        self.target_theta = math.atan2(self.target_ay + self.gravity_magnitude, self.target_ax)
         self.target_theta -= math.pi / 2
-        # self.target_theta = math.atan2(-self.target_ax, self.target_ay + self.gravity_magnitude)
         self.target_theta = np.clip(self.target_theta, -0.78, 0.78)
-    
+
         self.target_vtheta = self.angle_controller.compute(setpoint=self.target_theta, measurement=self.theta, dt=self.assumed_dt)
-        # Rate Controller
         self.target_torque = self.target_vtheta
-        # self.target_torque = self.angle_rate_controller.compute(setpoint=self.target_vtheta, measurement=self.vtheta, dt=self.assumed_dt)
-        self.target_thrust = self.assumed_mass * math.hypot(self.target_ax, self.target_ay+self.gravity_magnitude)
-        if self.print_:
-            print(f"self.target_ax: {self.target_ax:2f}\t self.target_ay: {self.target_ay:2f} \t Theta: {self.theta:2f} \t Target theta: {self.target_theta:2f}\t Action: {self.target_thrust:2f} {self.target_torque:2f}")
+        self.target_thrust = self.assumed_mass * math.hypot(self.target_ax, self.target_ay + self.gravity_magnitude)
 
         self.store_variables()
         return [self.target_thrust, self.target_torque]
-    
+
     def store_variables(self):
         self.history["t"].append(len(self.history["t"]) * self.assumed_dt)
         self.history["x"].append(self.x)

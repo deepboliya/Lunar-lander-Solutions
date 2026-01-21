@@ -1,7 +1,20 @@
-class SimpleSolution2:
-    def __init__(self, gravity_magnitude=None, print_=False):
-        self.gravity_magnitude = gravity_magnitude
-        self.print_ = print_
+"""
+Method 3: Simple hand-tuned controller v2
+No parameters or weights needed.
+"""
+
+from methods.base_controller import BaseController
+
+MODULE_CONFIG = {
+    'class_name': 'SimpleSolution2',
+    'params_file': None,
+    'weights_file': None,
+}
+
+
+class SimpleSolution2(BaseController):
+    def __init__(self, params=None, weights=None, gravity_magnitude=10.0):
+        super().__init__(params=params, weights=weights, gravity_magnitude=gravity_magnitude)
 
     def compute_action(self, observation):
         x, y = observation[0], observation[1]
@@ -15,20 +28,21 @@ class SimpleSolution2:
             vy_target = -0.5
 
         if vy < vy_target:
-            thrust = 1  # main engine
+            thrust = 1
         else:
-            thrust = 0  # cut main engine
+            thrust = 0
+            
         if abs(x) > 1.0:
             gain_x = 2.0
         else:
             gain_x = 1.0
+            
         target_theta = gain_x * x
         if target_theta < -0.4:
             target_theta = -0.4
         if target_theta > 0.4:
             target_theta = 0.4
+            
         torque = -3 * (target_theta - theta)
-        if self.print_:
-            print(f"x: {x:2f}\t vy: {vy:2f} \t Theta: {theta:2f} \t Target theta: {target_theta:2f}\t Action: {[thrust, torque]}")
 
         return [thrust, torque]

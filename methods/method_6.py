@@ -1,8 +1,24 @@
-class SimpleSolution3:
-    def __init__(self, params, gravity_magnitude=None, print_=False):
-        self.params = params
-        self.gravity_magnitude = gravity_magnitude
-        self.print_ = print_
+"""
+Method 6: Simple controller with CMA-ES tuned parameters
+Uses 6 parameters for gains and thresholds.
+"""
+
+from methods.base_controller import BaseController
+
+MODULE_CONFIG = {
+    'class_name': 'SimpleSolution3',
+    'params_file': 'method_6.json',
+    'weights_file': None,
+    'cma_num_params': 6,
+}
+
+
+class SimpleSolution3(BaseController):
+    def __init__(self, params=None, weights=None, gravity_magnitude=10.0):
+        super().__init__(params=params, weights=weights, gravity_magnitude=gravity_magnitude)
+        
+        if self.params is None:
+            self.params = [0.5, 0.1, 0.3, 1.0, 0.5, 5.0]
 
     def compute_action(self, observation):
         x, y = observation[0], observation[1]
@@ -21,21 +37,18 @@ class SimpleSolution3:
             vy_target = -low_speed
         else:
             vy_target = -high_speed
-        # if abs(x) > 1.0:
-        #     vy_target = 0.0
 
         if vy < vy_target:
-            thrust = 1  # main engine
+            thrust = 1
         else:
-            thrust = 0  # cut main engine
+            thrust = 0
 
         target_theta = x_gain * x
         if target_theta < -max_tilt:
             target_theta = -max_tilt
         if target_theta > max_tilt:
             target_theta = max_tilt
+            
         torque = -torque_gain * (target_theta - theta)
-        if self.print_:
-            print(f"x: {x:2f}\t vy: {vy:2f} \t Theta: {theta:2f} \t Target theta: {target_theta:2f}\t Action: {[thrust, torque]}")
 
         return [thrust, torque]

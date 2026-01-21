@@ -1,5 +1,20 @@
+"""
+Method 4: PID Controller with simplified structure
+Uses 12 parameters for PID controllers.
+"""
+
 import math
 import numpy as np
+from methods.base_controller import BaseController
+
+MODULE_CONFIG = {
+    'class_name': 'MainController2',
+    'params_file': 'method_4.json',
+    'weights_file': None,
+    'cma_num_params': 12,
+}
+
+
 class PIDController:
     def __init__(self, kp, ki, kd, integral_limit=10.0):
         self.kp = kp
@@ -19,39 +34,29 @@ class PIDController:
         self.previous_error = error
         return output
 
-class MainController3:
-    def __init__(self, flattened_params = None, gravity_magnitude = None, print_ = False):
-        self.print_ = print_
-        self.gravity_magnitude = gravity_magnitude
-        if flattened_params is None:
-            flattened_params = [-0.8, 0.0, 0.0,   # x position PID
-                                0.5, 0.0, 1.0,   # y position PID
-                                0.3, 0.0, 0.0,   # y velocity PID
-                                -5.0, 0.0, 0.0,  # angle PID
-                                0.5, 0.5]  #max tilt, landing speed, landing height
+
+class MainController2(BaseController):
+    def __init__(self, params=None, weights=None, gravity_magnitude=10.0):
+        super().__init__(params=params, weights=weights, gravity_magnitude=gravity_magnitude)
         
-        x_kp, x_ki, x_kd = flattened_params[:3]
-        y_kp, y_ki, y_kd = flattened_params[3:6]
-        # vx_kp, vx_ki, vx_kd = flattened_params[6:9]
-        vy_kp, vy_ki, vy_kd = flattened_params[6:9]
-        angle_kp, angle_ki, angle_kd = flattened_params[9:12]
-        # self.max_tilt = flattened_params[12]
-        self.max_tilt = 0.4
-        self.integral_limit = 10.0
-        self.landing_speed = flattened_params[12]
-        self.landing_height = flattened_params[13]  # height to start landing procedure
-        # self.integral_limit = flattened_params[16]  # integral limit for all controllers
-        # angle_rate_kp, angle_rate_ki, angle_rate_kd = flattened_params[15:18]
+        if self.params is None:
+            self.params = [-0.8, 0.0, 0.0,
+                          0.5, 0.0, 1.0,
+                          0.3, 0.0, 0.0,
+                          -5.0, 0.0, 0.0]
+        
+        x_kp, x_ki, x_kd = self.params[:3]
+        y_kp, y_ki, y_kd = self.params[3:6]
+        vy_kp, vy_ki, vy_kd = self.params[6:9]
+        angle_kp, angle_ki, angle_kd = self.params[9:12]
 
-        self.x_position_controller = PIDController(kp=x_kp, ki=x_ki, kd=x_kd, integral_limit=self.integral_limit)
-        self.y_position_controller = PIDController(kp=y_kp, ki=y_ki, kd=y_kd, integral_limit=self.integral_limit)
-        # self.x_velocity_controller = PIDController(kp=vx_kp, ki=vx_ki, kd=vx_kd, integral_limit=self.integral_limit)
-        self.y_velocity_controller = PIDController(kp=vy_kp, ki=vy_ki, kd=vy_kd, integral_limit=self.integral_limit)
-        self.angle_controller = PIDController(kp=angle_kp, ki=angle_ki, kd=angle_kd, integral_limit=self.integral_limit)
+        self.x_position_controller = PIDController(kp=x_kp, ki=x_ki, kd=x_kd)
+        self.y_position_controller = PIDController(kp=y_kp, ki=y_ki, kd=y_kd)
+        self.y_velocity_controller = PIDController(kp=vy_kp, ki=vy_ki, kd=vy_kd)
+        self.angle_controller = PIDController(kp=angle_kp, ki=angle_ki, kd=angle_kd)
 
-        # self.angle_rate_controller = PIDController(kp=angle_rate_kp, ki=angle_rate_ki, kd=angle_rate_kd)
-        self.assumed_dt = 0.02  # assuming 60 FPS
-
+        self.assumed_mass = 0.1
+        self.assumed_dt = 0.02
 
         self.x = 0.0
         self.y = 0.0
@@ -93,18 +98,22 @@ class MainController3:
         self.target_thrust = self.target_ay
 
         self.target_vx = self.x_position_controller.compute(setpoint=0, measurement=self.x, dt=self.assumed_dt)
-        self.target_theta = np.clip(self.target_vx, -abs(self.max_tilt), abs(self.max_tilt))
+        self.target_theta = np.clip(self.target_vx, -0.78, 0.78)
         self.target_torque = self.angle_controller.compute(setpoint=self.target_theta, measurement=self.theta, dt=self.assumed_dt)
 
-        
-        if self.y < self.landing_height and self.vy < -self.landing_speed:
-            self.target_thrust = 0.5
-        if self.print_:
-            print(f"self.target_theta: {self.target_theta:2f}\t self.target_ay: {self.target_ay:2f} \t Theta: {self.theta:2f} \t Target theta: {self.target_theta:2f}\t Action: {self.target_thrust:2f} {self.target_torque:2f}")
+        if self.leg1 and not self.leg2 and abs(self.vy) < 0.2:
+            self.target_thrust = 0.0
+            self.target_torque = 1.0
+        elif self.leg2 and not self.leg1 and abs(self.vy) < 0.2:
+            self.target_thrust = 0.0
+            self.target_torque = -1.0
+        elif self.leg1 and self.leg2:
+            self.target_thrust = 0.0
+            self.target_torque = 0.0
 
         self.store_variables()
         return [self.target_thrust, self.target_torque]
-    
+
     def store_variables(self):
         self.history["t"].append(len(self.history["t"]) * self.assumed_dt)
         self.history["x"].append(self.x)
