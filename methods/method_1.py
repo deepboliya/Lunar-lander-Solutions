@@ -6,14 +6,16 @@ No parameters or weights needed.
 from methods.base_controller import BaseController
 
 MODULE_CONFIG = {
-    'class_name': 'SimpleSolution',
+    'class_name': 'BasicController',
     'params_file': None,
     'weights_file': None,
 }
 
 
-class SimpleSolution(BaseController):
-    def __init__(self, params=None, weights=None, gravity_magnitude=10.0):
+class BasicController(BaseController):
+    # Intuition; Try to descent with a const vertical speed. target theta is such that IF(big if) the main
+    # engine is on, the lander would go towards the origin. the torque is just simply just a P controller to reach the target theta.
+    def __init__(self, gravity_magnitude, params, weights):
         super().__init__(params=params, weights=weights, gravity_magnitude=gravity_magnitude)
 
     def compute_action(self, observation):

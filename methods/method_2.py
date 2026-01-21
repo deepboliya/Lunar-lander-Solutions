@@ -8,7 +8,7 @@ import numpy as np
 from methods.base_controller import BaseController
 
 MODULE_CONFIG = {
-    'class_name': 'AgentPID',
+    'class_name': 'CascadedPID',
     'params_file': 'method_2.json',
     'weights_file': None,
     'cma_num_params': 15,
@@ -35,16 +35,18 @@ class PIDController:
         return output
 
 
-class AgentPID(BaseController):
-    def __init__(self, params=None, weights=None, gravity_magnitude=10.0):
+class CascadedPID(BaseController):
+    # Intuition: Think of the lander as a drone. A Typical drone controller uses a cascaded PID 
+    # controller to generate 3d thrust and torque commands from position setpoints.
+    def __init__(self, gravity_magnitude, params, weights):
         super().__init__(params=params, weights=weights, gravity_magnitude=gravity_magnitude)
         
         if self.params is None:
             self.params = [0.1, 0.0, 0.0,
-                          0.5, 0.0, 0.0,
-                          0.0, 0.0, 0.0,
-                          7.0, 0.0, 0.0,
-                          0.0, 0.0, 0.0]
+                            0.5, 0.0, 0.0,
+                            0.0, 0.0, 0.0,
+                            7.0, 0.0, 0.0,
+                            0.0, 0.0, 0.0]
         
         x_kp, x_ki, x_kd = self.params[:3]
         y_kp, y_ki, y_kd = self.params[3:6]
@@ -56,7 +58,7 @@ class AgentPID(BaseController):
         self.y_position_controller = PIDController(kp=y_kp, ki=y_ki, kd=y_kd)
         self.x_velocity_controller = PIDController(kp=vx_kp, ki=vx_ki, kd=vx_kd)
         self.y_velocity_controller = PIDController(kp=vy_kp, ki=vy_ki, kd=vy_kd)
-        self.angle_controller = PIDController(kp=angle_kp, ki=angle_ki, kd=angle_kd)
+        self.attitude_controller = PIDController(kp=angle_kp, ki=angle_ki, kd=angle_kd)
 
         self.assumed_mass = 0.1
         self.assumed_dt = 0.02
@@ -106,7 +108,7 @@ class AgentPID(BaseController):
         self.target_theta -= math.pi / 2
         self.target_theta = np.clip(self.target_theta, -0.78, 0.78)
 
-        self.target_vtheta = self.angle_controller.compute(setpoint=self.target_theta, measurement=self.theta, dt=self.assumed_dt)
+        self.target_vtheta = self.attitude_controller.compute(setpoint=self.target_theta, measurement=self.theta, dt=self.assumed_dt)
         self.target_torque = self.target_vtheta
         self.target_thrust = self.assumed_mass * math.hypot(self.target_ax, self.target_ay + self.gravity_magnitude)
 

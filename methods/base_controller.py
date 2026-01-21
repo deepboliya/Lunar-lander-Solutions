@@ -18,7 +18,7 @@ WEIGHTS_DIR.mkdir(exist_ok=True)
 
 class BaseController:
     
-    def __init__(self, params=None, weights=None, gravity_magnitude=10.0):
+    def __init__(self, params, weights, gravity_magnitude):
         self.params = params
         self.weights = weights
         self.gravity_magnitude = gravity_magnitude
@@ -49,7 +49,7 @@ class BaseController:
         torch.save(weights, weights_path)
 
 
-def create_controller_factory(method_number, gravity_magnitude=10.0, params=None, weights=None):
+def create_controller_factory(method_number, gravity_magnitude):
     """
     Create a factory function that instantiates a controller.
     
@@ -74,18 +74,23 @@ def create_controller_factory(method_number, gravity_magnitude=10.0, params=None
     config = module.MODULE_CONFIG
     controller_class = getattr(module, config['class_name'])
     
-    loaded_params = params
-    if loaded_params is None and config.get('params_file'):
+    loaded_params = None
+    if config.get('params_file'):
         params_path = PARAMS_DIR / config['params_file']
         if params_path.exists():
             loaded_params = BaseController.load_params(config['params_file'])
+        else:
+            raise FileNotFoundError(f"No params file found at {params_path}")
     
-    loaded_weights = weights
-    if loaded_weights is None and config.get('weights_file'):
+    
+    loaded_weights = None
+    if config.get('weights_file'):
         weights_path = WEIGHTS_DIR / config['weights_file']
         if weights_path.exists():
             loaded_weights = BaseController.load_weights(config['weights_file'])
-    
+        else:
+            raise FileNotFoundError(f"No weights file found at {weights_path}")
+
     def factory():
         return controller_class(
             params=loaded_params,

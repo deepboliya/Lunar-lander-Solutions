@@ -166,7 +166,7 @@ def main():
                         help='Method number to train (must have cma_num_params in config)')
     parser.add_argument('--num-gen', type=int, default=400,
                         help='Number of generations for CMA-ES')
-    parser.add_argument('--pop-size', type=int, default=100,
+    parser.add_argument('--pop-size', type=int, default=200,
                         help='Population size for CMA-ES')
     parser.add_argument('--sigma', type=float, default=2.0,
                         help='Initial sigma for CMA-ES')
